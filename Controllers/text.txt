@@ -1,0 +1,2 @@
+Check If User Does Not Exist, We Send Them An Account Activation Link
+If User Taps On That Link, Their Account Will Get Stored In Our Database
