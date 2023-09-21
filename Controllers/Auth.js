@@ -14,21 +14,20 @@ export const Register = async (req, res) => {
     };
     const { fullName, username, email, password } = req.body;
     const userExist = await User.findOne({ email });
-    console.log(userExist);
     if (userExist) {
-      return res.status(500).json({ message: "This User Already Exist" });
+      return res.status(500).json({ sucess:false, message: "This User Already Exist" });
     }
 
     const user = { fullName, username, email, password };
     const activationToken = createActivationToken(user);
     const ActivationUrl = `${process.env.Activation_Url}/${activationToken}`;
-    console.log(user);
     try {
       await sendMail({
         email: user.email,
 
         subject: "Activate Account",
-        message: `Hello ${user.username}, please click on the link to activate your account: ${ActivationUrl}`,
+        message:`Hello ${user.username}, please click on the link to activate your account: ${ActivationUrl}`,
+        html: `<p style="color:black; font-size:18px;">Hello ${user.username}, please click on the link to activate your account: ${ActivationUrl}</p>`
       });
     } catch (error) {
       console.log(error);
@@ -46,7 +45,8 @@ export const Register = async (req, res) => {
 };
 
 export const activateAccount = async (req, res) => {
-  const { activationToken } = req.body;
+  const { activationToken } = req.params;
+  console.log(activationToken)
   const newUser = jwt.verify(activationToken, process.env.Activation_Secret);
   if (!newUser) {
     return res
@@ -66,6 +66,9 @@ export const activateAccount = async (req, res) => {
     password: hashedPassword,
   });
   await findUser.save();
+  return res
+      .status(204)
+      .json({  sucess:true, message: "Account Created Succesfully" });
 };
 
 export const Login = async (req, res) => {
@@ -85,8 +88,11 @@ export const Login = async (req, res) => {
         .json({ message: "Username Or Password Is Incorrect" });
     }
     const token = jwt.sign({ id: user._id }, process.env.Jwt_Secret_Key);
-    
-    res.json({ token, userID: user._id });
+    res.cookie('activeUser', token, {
+      maxAge:36000000
+    })
+    // res.json({ token, userID: user._id });
+    res.json({message:"Cookies succesfully set"})
   } catch (error) {
     console.log(error);
   }
@@ -107,7 +113,7 @@ export const forgotPassword = async (req, res) => {
     if (!findUser) {
       return res
         .status(401)
-        .json({ message: "User Does Not Exist" })
+        .json({  sucess:false, message: "User Does Not Exist" })
         .redirect("/register");
     }
     const user = { email };
@@ -121,6 +127,7 @@ export const forgotPassword = async (req, res) => {
         email: user.email,
         subject: "OTP Verification",
         message: `Your OTP is ${OTP} and it expires in ten minutes`,
+        html: `<p style="color:black; font-size:18px;">Your OTP is ${OTP} and it expires in ten minutes</p>`
       });
     } catch (error) {
       console.log(error);
