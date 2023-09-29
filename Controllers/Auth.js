@@ -87,11 +87,12 @@ export const Login = async (req, res) => {
         .json({ message: "Username Or Password Is Incorrect" });
     }
     const token = jwt.sign({ id: user._id }, process.env.Jwt_Secret_Key);
+    console.log(token)
     res.cookie('activeUser', token, {
       maxAge:36000000
     })
     // res.json({ token, userID: user._id });
-    res.json({message:"Cookies succesfully set"})
+    res.json({activeUser: token})
   } catch (error) {
     console.log(error);
   }
