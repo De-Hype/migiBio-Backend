@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const NEW = process.env.New ;
+const NEW = process.env.New || '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';
 
 export const postAiCalls = async (req, res) => {
   const { text } = req.body;
