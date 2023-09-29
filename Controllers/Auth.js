@@ -24,10 +24,9 @@ export const Register = async (req, res) => {
     try {
       await sendMail({
         email: user.email,
-
         subject: "Activate Account",
-        message:`Hello ${user.username}, please click on the link to activate your account: ${ActivationUrl}`,
-        html: `<p style="color:black; font-size:18px;">Hello ${user.username}, please click on the link to activate your account: ${ActivationUrl}</p>`
+         message:`Hello ${user.username}, please click on the link to activate your account: ${ActivationUrl}`,
+        html: `<p><b>Hello ${user.username}, please click on the link to activate your account: <a style="color:black;" href=${ActivationUrl}>here</a></b></p>`
       });
     } catch (error) {
       console.log(error);
