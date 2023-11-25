@@ -21,10 +21,12 @@ async function connect() {
     console.log("Error To Database");
   }
 }
-connect();
+
 
 app.use('/api/user', userRoutes )
 
-app.listen(PORT, () => {
-  console.log(`Server runing on http://localhost:${PORT}`);
-});
+connect().then(()=>{
+    app.listen(Port, ()=>{
+        console.log(`Server Started On http://localhost:${Port}`)
+     })
+})
