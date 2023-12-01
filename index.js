@@ -26,7 +26,7 @@ async function connect() {
 app.use('/api/user', userRoutes )
 
 connect().then(()=>{
-    app.listen(Port, ()=>{
-        console.log(`Server Started On http://localhost:${Port}`)
+    app.listen(PORT, ()=>{
+        console.log(`Server Started On http://localhost:${PORT}`)
      })
 })
