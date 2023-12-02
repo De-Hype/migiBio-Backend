@@ -3,61 +3,52 @@ import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 import sendMail from "../utils/sendMail.js";
 import Otp from "../Model/Otp.js";
-import {v4 as uuidv4} from 'uuid'
+import { v4 as uuidv4 } from "uuid";
+import catchAsync from "../utils/catchAsync.js";
 
-export const Register = async (req, res) => {
-  try {
-    const createActivationToken = (user) => {
-      return jwt.sign(user, process.env.Activation_Secret, {
-        expiresIn: "30m",
-      });
-    };
-    const { fullName, username, email, password } = req.body;
-    const userExist = await User.findOne({ email });
-    if (userExist) {
-      return res.status(500).json({ sucess:false, message: "This User Already Exist" });
-    }
-
-    const user = { fullName, username, email, password };
-    const activationToken = createActivationToken(user);
-    const ActivationUrl = `${process.env.Activation_Url}/${activationToken}`;
-    try {
-      await sendMail({
-        email: user.email,
-        subject: "Activate Account",
-         message:`Hello ${user.username}, please click on the link to activate your account: ${ActivationUrl}`,
-        html: `<p><b>Hello ${user.username}, please click on the link to activate your account: <a style="color:red;" href=${ActivationUrl}>here</a></b></p>`
-      });
-    } catch (error) {
-      console.log(error);
-      console.log("Error Occured Sending Mail");
-    }
-    res
-      .json({
-        success: true,
-        message: "Account Activation Link Sent To Mail Successfully",
-      })
-      .status(204);
-  } catch (error) {
-    console.error(error);
+export const Register = catchAsync(async (req, res, next) => {
+  const createActivationToken = (user) => {
+    return jwt.sign(user, process.env.Activation_Secret, {
+      expiresIn: "30m",
+    });
+  };
+  const { fullName, username, email, password } = req.body;
+  const userExist = await User.findOne({ email });
+  if (userExist) {
+    return next(new AppError("This user already exist", 401));
   }
-};
+  const user = { fullName, username, email, password };
+  const activationToken = createActivationToken(user);
+  const ActivationUrl = `${process.env.Activation_Url}/${activationToken}`;
+  try {
+    await sendMail({
+      email: user.email,
+      subject: "Activate Account",
+      message: `Hello ${user.username}, please click on the link to activate your account: ${ActivationUrl}`,
+      html: `<p><b>Hello ${user.username}, please click on the link to activate your account: <a style="color:red;" href=${ActivationUrl}>here</a></b></p>`,
+    });
+  } catch (error) {
+    next(error);
+    console.log("Error Occured Sending Mail");
+  }
+  res
+    .json({
+      success: true,
+      message: "Account Activation Link Sent To Mail Successfully",
+    })
+    .status(204);
+});
 
-export const activateAccount = async (req, res) => {
+export const activateAccount = catchAsync(async (req, res, next) => {
   const { activationToken } = req.params;
-  console.log(activationToken)
+  console.log(activationToken);
   const newUser = jwt.verify(activationToken, process.env.Activation_Secret);
   if (!newUser) {
-    return res
-      .status(500)
-      .json({ message: "This Token Is Invalid Or Has Expired" });
+    return next(new AppError("This token is invalid or has expired ", 401));
   }
-
   const { fullName, username, email, password } = newUser;
-
   const salt = await bcrypt.genSalt(10);
   const hashedPassword = await bcrypt.hash(password, salt);
-
   let findUser = await User({
     fullName,
     username,
@@ -66,44 +57,35 @@ export const activateAccount = async (req, res) => {
   });
   await findUser.save();
   return res
-      .status(204)
-      .json({  sucess:true, message: "Account Created Succesfully" });
-};
+    .status(204)
+    .json({ sucess: true, message: "Account Created Succesfully" });
+});
 
-export const Login = async (req, res) => {
-  try {
-    const { email, password } = req.body;
-    const user = await User.findOne({ email });
-    if (!user) {
-      return res
-        .status(401)
-        .json({ message: "User Does Not Exist" })
-        .redirect("/register");
-    }
-    const isPasswordValid = await bcrypt.compare(password, user.password);
-    if (!isPasswordValid) {
-      return res
-        .status(404)
-        .json({ message: "Username Or Password Is Incorrect" });
-    }
-    const token = jwt.sign({ id: user._id }, process.env.Jwt_Secret_Key);
-    console.log(token)
-    res.cookie('activeUser', token, {
-      maxAge:36000000
-    })
-    // res.json({ token, userID: user._id });
-    res.json({activeUser: token})
-  } catch (error) {
-    console.log(error);
+export const Login = catchAsync(async (req, res, next) => {
+  const { email, password } = req.body;
+  const user = await User.findOne({ email });
+  if (!user) {
+    return next(new AppError("This user does not exist", 401));
   }
-};
+  const isPasswordValid = await bcrypt.compare(password, user.password);
+  if (!isPasswordValid) {
+    return next(new AppError("Incorrect login details", 401));
+  }
+  const token = jwt.sign({ id: user._id }, process.env.Jwt_Secret_Key);
+  console.log(token);
+  res.cookie("activeUser", token, {
+    httpOnly: true,
+  });
+  // res.json({ token, userID: user._id });
+  res.json({ activeUser: token });
+});
 
-export const LogOut = async (req, res) => {
-  try {
-  } catch (error) {
-    console.error(error);
-  }
-};
+export const LogOut = catchAsync(async (req, res, next) => {
+  res.cookie("activeUser", '', {
+    httpOnly: true, 
+  });
+});
+
 
 //To Collect The Info Of The User And Send OTP
 export const forgotPassword = async (req, res) => {
@@ -113,7 +95,7 @@ export const forgotPassword = async (req, res) => {
     if (!findUser) {
       return res
         .status(401)
-        .json({  sucess:false, message: "User Does Not Exist" })
+        .json({ sucess: false, message: "User Does Not Exist" })
         .redirect("/register");
     }
     const user = { email };
@@ -127,14 +109,14 @@ export const forgotPassword = async (req, res) => {
         email: user.email,
         subject: "OTP Verification",
         message: `Your OTP is ${OTP} and it expires in ten minutes`,
-        html: `<p style="color:black; font-size:18px;">Your OTP is ${OTP} and it expires in ten minutes</p>`
+        html: `<p style="color:black; font-size:18px;">Your OTP is ${OTP} and it expires in ten minutes</p>`,
       });
     } catch (error) {
       console.log(error);
       console.log("Error Occured Sending Mail");
     }
 
-    let saveOTP = await Otp({ email, number: OTP});
+    let saveOTP = await Otp({ email, number: OTP });
     await saveOTP.save();
     res
       .json({
@@ -153,19 +135,24 @@ export const verifyOTP = async (req, res) => {
     const { number } = req.body;
     // console.log(OTP)
 
-   const findOTP = await Otp.findOne({ number })
-    
-console.log({findOTP})
+    const findOTP = await Otp.findOne({ number });
+
+    console.log({ findOTP });
     if (!findOTP) {
-      return res.status(401).json({ message: "Wrong Credentials Or OTP Provided" });
+      return res
+        .status(401)
+        .json({ message: "Wrong Credentials Or OTP Provided" });
     }
 
-const hashedRID = uuidv4()
-  
-    const newOtpDB = await Otp.findOneAndUpdate({number}, {
-      hashedRID
-    });
-    console.log(newOtpDB)
+    const hashedRID = uuidv4();
+
+    const newOtpDB = await Otp.findOneAndUpdate(
+      { number },
+      {
+        hashedRID,
+      }
+    );
+    console.log(newOtpDB);
     await newOtpDB.save();
     //We Then Send Back This Random Id As A Response For Our Password Update
     return res.status(404).json({
@@ -181,11 +168,11 @@ const hashedRID = uuidv4()
 //To Create Password For The User That Forgot His Password
 export const updatePassword = async (req, res) => {
   try {
-    const { password  } = req.body;
-    const {hashedRID} = req.params;
-    
+    const { password } = req.body;
+    const { hashedRID } = req.params;
+
     const findOtp = await Otp.findOne({ hashedRID });
-    console.log(findOtp)
+    console.log(findOtp);
     if (!findOtp) {
       return res.status(404).json({
         success: false,
@@ -195,12 +182,15 @@ export const updatePassword = async (req, res) => {
     }
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
-    const {email} = findOtp
-    const updatePassword = await User.findOneAndUpdate({email}, {
-      password:hashedPassword,
-    });
+    const { email } = findOtp;
+    const updatePassword = await User.findOneAndUpdate(
+      { email },
+      {
+        password: hashedPassword,
+      }
+    );
     await updatePassword.save();
-    res.json({message:"Succefull Changed Password"})
+    res.json({ message: "Succefull Changed Password" });
   } catch (error) {
     console.log(error);
   }
@@ -208,27 +198,26 @@ export const updatePassword = async (req, res) => {
 
 export const getAllUsers = async (req, res) => {
   try {
-      const allUsers =await User.find()
-      
-      if(!allUsers){
-          res.json({message:"No Users Found"})
-      }
-      res.status('200').json({allUsers})
-  } catch (error) {
-      console.error('Error Occured')
-  }
-}
+    const allUsers = await User.find();
 
+    if (!allUsers) {
+      res.json({ message: "No Users Found" });
+    }
+    res.status("200").json({ allUsers });
+  } catch (error) {
+    console.error("Error Occured");
+  }
+};
 
 export const getAllOTP = async (req, res) => {
   try {
-      const allotp =await Otp.find()
-      
-      if(!allotp){
-          res.json({message:"No Otp Found"})
-      }
-      res.status('200').json({allotp})
+    const allotp = await Otp.find();
+
+    if (!allotp) {
+      res.json({ message: "No Otp Found" });
+    }
+    res.status("200").json({ allotp });
   } catch (error) {
-      console.error('Error Occured')
+    console.error("Error Occured");
   }
-}
+};
