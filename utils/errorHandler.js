@@ -6,6 +6,14 @@ const handleCastErrorDB =err=>{
     return new AppError(message, 400);
 }
 
+const handleExpiredKey =err=>{
+    return new AppError('Request to ChatGpt failed due to expired key', 429)
+}
+const handleNoAiConnection = err=>{
+    console.log(err.code)
+    return new AppError("Error connecting to OpenAi's ChatGPT", 503)
+}
+
 const SendErrorDev = (err, req, res)=>{
     return res.status(err.statusCode).json({
         status:err.status,
@@ -39,6 +47,8 @@ export default  (err, req, res, next)=>{
         let error = {...err};
         error.message = err.message;
         console.log('error')
+        if (error.status == 429)error = handleExpiredKey(error);
+        if (error.code === 'ENOTFOUND') error=  handleNoAiConnection(error)
         //We will handle different errors here tho
         SendErrorProd(error, req, res);
     } 

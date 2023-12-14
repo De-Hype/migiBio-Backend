@@ -4,13 +4,13 @@ import catchAsync from "../utils/catchAsync.js";
 import AppError from "../utils/AppError.js";
 dotenv.config();
 
-const NEW = process.env.New_Key;
+const New_key = process.env.New_key;
 export const postAiCalls = catchAsync(async (req, res, next) => {
   const { text } = req.body;
   const options = {
     method: "POST",
     header: {
-      Authorization: `Bearer ${NEW}`,
+      Authorization: `Bearer ${New_key}`,
       "Content-Type": "application/json",
     },
     data: JSON.stringify({

@@ -32,7 +32,7 @@ app.all("*", (req, res, next) => {
   next(
     new AppError(
       `Can not find ${req.originalUrl} with ${req.method} on this server`,
-      401
+      501
     )
   );
 });
